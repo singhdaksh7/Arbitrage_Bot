@@ -1,0 +1,36 @@
+# Arbitrage Bot API Documentation
+
+## Endpoints
+
+### Status
+- **GET** `/api/status` - Get bot status and configuration
+
+### Opportunities
+- **GET** `/api/opportunities` - Get detected opportunities
+  - Query params: `limit`, `active_only`
+- **POST** `/api/opportunities/scan` - Manually scan for opportunities
+
+### Trades
+- **GET** `/api/trades` - Get trading history
+  - Query params: `limit`
+- **POST** `/api/trades/execute` - Execute a simulated trade
+  - Body: `{opportunity_id, quantity?}`
+
+### Wallet
+- **GET** `/api/wallet` - Get wallet info and stats
+- **POST** `/api/wallet/reset` - Reset wallet
+
+### Statistics
+- **GET** `/api/stats` - Get overall statistics
+
+## Response Format
+
+All endpoints return JSON responses with the following structure:
+
+```json
+{
+  "success": true/false,
+  "data": {...},
+  "error": "error message if any"
+}
+```
