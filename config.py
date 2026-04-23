@@ -5,9 +5,17 @@ Configuration file for Arbitrage Bot
 import os
 from datetime import timedelta
 
+# Determine database path
+if os.environ.get('RENDER'):
+    # Running on Render - use /tmp (writable directory)
+    db_path = 'sqlite:////tmp/arbitrage_bot.db'
+else:
+    # Local development - use instance folder
+    db_path = 'sqlite:///instance/arbitrage_bot.db'
+
 class Config:
     """Base configuration"""
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///arbitrage_bot.db'
+    SQLALCHEMY_DATABASE_URI = db_path
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JSON_SORT_KEYS = False
     
