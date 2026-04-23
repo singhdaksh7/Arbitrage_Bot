@@ -7,6 +7,11 @@ from app.routes import web_bp
 
 @web_bp.route('/')
 def index():
+    """Landing page"""
+    return render_template('landing.html')
+
+@web_bp.route('/dashboard')
+def dashboard():
     """Dashboard homepage"""
     return render_template('index.html')
 
