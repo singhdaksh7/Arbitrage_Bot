@@ -7,6 +7,10 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from config import config
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 db = SQLAlchemy()
 
@@ -43,12 +47,23 @@ def create_app(config_name='development'):
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(web_bp)
     
-    # Initialize scheduler for background tasks
-    from app.scheduler import scheduler
-    scheduler.init_app(app)
-    scheduler.start()
+    # Initialize scheduler for background tasks (safely)
+    try:
+        from app.scheduler import scheduler
+        scheduler.init_app(app)
+        if os.environ.get('RENDER') is None:  # Only auto-start on local development
+            scheduler.start()
+            logger.info("✅ Scheduler initialized and started")
+        else:
+            logger.info("ℹ️ Scheduler initialized (disabled on Render)")
+    except Exception as e:
+        logger.warning(f"⚠️ Scheduler initialization warning: {str(e)}")
     
     # Initialize alerts
-    from app.alerts import alert_manager
+    try:
+        from app.alerts import alert_manager
+        logger.info("✅ Alert manager initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ Alert manager warning: {str(e)}")
     
     return app

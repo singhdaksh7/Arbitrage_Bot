@@ -10,6 +10,7 @@ from app.models.price import PriceSnapshot
 from app import db
 from config import Config
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class BotScheduler:
     """Manages background tasks"""
     
     def __init__(self, app=None):
-        self.scheduler = BackgroundScheduler()
+        self.scheduler = BackgroundScheduler(daemon=True)
         self.app = app
         self.detector = None
         
@@ -28,21 +29,27 @@ class BotScheduler:
         
     def start(self):
         """Start background scheduler"""
-        if not self.scheduler.running:
-            self.scheduler.add_job(
-                self.scan_opportunities,
-                'interval',
-                seconds=Config.SCAN_INTERVAL,
-                id='arbitrage_scan'
-            )
-            self.scheduler.start()
-            logger.info("✅ Background scanner started")
+        try:
+            if not self.scheduler.running:
+                self.scheduler.add_job(
+                    self.scan_opportunities,
+                    'interval',
+                    seconds=Config.SCAN_INTERVAL,
+                    id='arbitrage_scan'
+                )
+                self.scheduler.start()
+                logger.info("✅ Background scanner started")
+        except Exception as e:
+            logger.warning(f"⚠️ Scheduler warning (non-fatal): {str(e)}")
     
     def stop(self):
         """Stop background scheduler"""
-        if self.scheduler.running:
-            self.scheduler.shutdown()
-            logger.info("⏹️ Background scanner stopped")
+        try:
+            if self.scheduler.running:
+                self.scheduler.shutdown()
+                logger.info("⏹️ Background scanner stopped")
+        except Exception as e:
+            logger.warning(f"⚠️ Scheduler stop warning: {str(e)}")
     
     def scan_opportunities(self):
         """Run automated opportunity scan"""
