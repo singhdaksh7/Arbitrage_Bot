@@ -163,3 +163,117 @@ def get_stats():
             'pending': total_opportunities - executed_opportunities
         }
     })
+
+@api_bp.route('/alerts', methods=['GET'])
+def get_alerts():
+    """Get recent alerts"""
+    from app.alerts import alert_manager
+    limit = request.args.get('limit', 20, type=int)
+    alerts = alert_manager.get_alerts(limit)
+    return jsonify({'alerts': alerts})
+
+@api_bp.route('/backtesting/run', methods=['POST'])
+def run_backtest():
+    """Run backtesting simulation"""
+    from app.backtester import backtest_engine
+    
+    days = request.json.get('days', 7) if request.json else 7
+    initial_balance = request.json.get('initial_balance', 1000) if request.json else 1000
+    
+    results = backtest_engine.backtest(days, initial_balance)
+    return jsonify(results)
+
+@api_bp.route('/opportunities/filtered', methods=['GET'])
+def get_filtered_opportunities():
+    """Get opportunities with advanced filters"""
+    min_profit = request.args.get('min_profit', 1.5, type=float)
+    max_profit = request.args.get('max_profit', 50, type=float)
+    exchange_from = request.args.get('exchange_from', type=str)
+    limit = request.args.get('limit', 50, type=int)
+    
+    query = Opportunity.query.filter(
+        Opportunity.profit_percentage.between(min_profit, max_profit)
+    )
+    
+    if exchange_from:
+        query = query.filter_by(exchange_from=exchange_from)
+    
+    opportunities = query.order_by(Opportunity.profit_percentage.desc()).limit(limit).all()
+    
+    return jsonify({
+        'opportunities': [opp.to_dict() for opp in opportunities],
+        'count': len(opportunities),
+        'filters': {
+            'min_profit': min_profit,
+            'max_profit': max_profit,
+            'exchange_from': exchange_from
+        }
+    })
+
+@api_bp.route('/opportunities/top', methods=['GET'])
+def get_top_opportunities():
+    """Get top 10 most profitable opportunities"""
+    limit = request.args.get('limit', 10, type=int)
+    opportunities = Opportunity.query.filter_by(is_active=True).order_by(
+        Opportunity.profit_percentage.desc()
+    ).limit(limit).all()
+    
+    return jsonify({
+        'opportunities': [opp.to_dict() for opp in opportunities],
+        'count': len(opportunities)
+    })
+
+@api_bp.route('/performance', methods=['GET'])
+def get_performance():
+    """Get bot performance metrics"""
+    trades = Trade.query.all()
+    
+    if not trades:
+        return jsonify({
+            'performance': {
+                'total_trades': 0,
+                'winning_trades': 0,
+                'losing_trades': 0,
+                'win_rate': 0,
+                'avg_profit_per_trade': 0,
+                'total_profit': 0
+            }
+        })
+    
+    winning = [t for t in trades if t.profit_loss > 0]
+    losing = [t for t in trades if t.profit_loss < 0]
+    
+    total_profit = sum(t.profit_loss for t in trades)
+    avg_profit = total_profit / len(trades) if trades else 0
+    
+    return jsonify({
+        'performance': {
+            'total_trades': len(trades),
+            'winning_trades': len(winning),
+            'losing_trades': len(losing),
+            'win_rate': (len(winning) / len(trades) * 100) if trades else 0,
+            'avg_profit_per_trade': round(avg_profit, 2),
+            'total_profit': round(total_profit, 2),
+            'best_trade': max([t.profit_loss for t in trades]) if trades else 0,
+            'worst_trade': min([t.profit_loss for t in trades]) if trades else 0
+        }
+    })
+
+@api_bp.route('/opportunities/auto-scan', methods=['POST'])
+def toggle_auto_scan():
+    """Toggle automatic opportunity scanning"""
+    from app.scheduler import scheduler
+    
+    enabled = request.json.get('enabled', True) if request.json else True
+    
+    try:
+        if enabled:
+            scheduler.start()
+            message = "Auto-scan enabled - scanning every 5 minutes"
+        else:
+            scheduler.stop()
+            message = "Auto-scan disabled"
+        
+        return jsonify({'success': True, 'message': message})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500

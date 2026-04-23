@@ -43,4 +43,12 @@ def create_app(config_name='development'):
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(web_bp)
     
+    # Initialize scheduler for background tasks
+    from app.scheduler import scheduler
+    scheduler.init_app(app)
+    scheduler.start()
+    
+    # Initialize alerts
+    from app.alerts import alert_manager
+    
     return app

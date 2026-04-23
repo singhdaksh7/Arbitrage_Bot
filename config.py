@@ -21,17 +21,39 @@ class Config:
     
     # Bot configuration
     INITIAL_WALLET_BALANCE = 1000  # $1000 virtual USD
+    SCAN_INTERVAL = 300  # Seconds between automatic scans (5 minutes)
     UPDATE_INTERVAL = 60  # Seconds between price updates
     
     # Trading configuration
-    MIN_PROFIT_PERCENTAGE = 2.0  # Minimum 2% profit to consider
+    MIN_PROFIT_PERCENTAGE = 1.5  # Minimum 1.5% profit (lowered for more opportunities)
+    MAX_PROFIT_PERCENTAGE = 50.0  # Maximum profit % (filter out suspicious deals)
     TRANSACTION_FEE = 0.001  # 0.1% per transaction (typical exchange fee)
     
-    # Supported pairs (can add more)
-    TRADING_PAIRS = ['BTC/USD', 'ETH/USD', 'LTC/USD']
+    # Advanced trading pairs (50+ coins across major categories)
+    TRADING_PAIRS = [
+        # Top 10 by market cap
+        'BTC/USD', 'ETH/USD', 'BNB/USD', 'XRP/USD', 'ADA/USD',
+        'SOL/USD', 'DOGE/USD', 'POLKADOT/USD', 'LTC/USD', 'AVAX/USD',
+        # Layer 2 & Scaling
+        'ARBITRUM/USD', 'OPTIMISM/USD', 'POLYGON/USD', 'STARKNET/USD',
+        # DeFi Tokens
+        'AAVE/USD', 'UNISWAP/USD', 'CURVE/USD', 'BALANCER/USD', 'LIDO/USD',
+        # Stablecoins & Wrapped
+        'USDC/USD', 'USDT/USD', 'DAI/USD', 'WBTC/USD', 'WETH/USD',
+        # Altcoins with high volume
+        'CHAINLINK/USD', 'COSMOS/USD', 'HELIUM/USD', 'NEAR/USD', 'FLOW/USD',
+        'FILECOIN/USD', 'THE GRAPH/USD', 'ENS/USD', 'MAKER/USD', 'COMPOUND/USD',
+    ]
     
     # Exchanges
     EXCHANGES = ['binance', 'kraken']
+    
+    # Alerts configuration
+    ENABLE_ALERTS = True
+    ALERT_MIN_PROFIT = 2.5  # Alert if opportunity > 2.5%
+    
+    # Backtesting configuration
+    BACKTEST_DAYS = 7  # Historical data for backtesting
 
 class DevelopmentConfig(Config):
     """Development configuration"""
