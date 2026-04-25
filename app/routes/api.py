@@ -259,6 +259,41 @@ def get_performance():
         }
     })
 
+@api_bp.route('/latency/metrics', methods=['GET'])
+def get_latency_metrics():
+    """Get execution latency statistics"""
+    from app.latency.metrics import latency_tracker
+    from app.latency.async_fetcher import AsyncPriceFetcher
+    from app.latency.order_queue import order_queue
+    from app.latency.price_cache import price_cache
+    
+    return jsonify({
+        'execution_latency': latency_tracker.get_all_stats(),
+        'price_fetch_performance': detector.async_fetcher.get_metrics(),
+        'price_cache': price_cache.get_stats(),
+        'order_queue': order_queue.get_metrics()
+    })
+
+@api_bp.route('/latency/metrics/reset', methods=['POST'])
+def reset_latency_metrics():
+    """Reset all latency metrics counters"""
+    from app.latency.metrics import latency_tracker
+    from app.latency.price_cache import price_cache
+    from app.latency.order_queue import order_queue
+    
+    latency_tracker.reset()
+    price_cache.reset_stats()
+    order_queue.metrics = {
+        'total_prepared': 0,
+        'total_submitted': 0,
+        'total_filled': 0,
+        'avg_latency_ms': 0,
+        'rejected': 0
+    }
+    detector.async_fetcher.reset_metrics()
+    
+    return jsonify({'success': True, 'message': 'Latency metrics reset'})
+
 @api_bp.route('/opportunities/auto-scan', methods=['POST'])
 def toggle_auto_scan():
     """Toggle automatic opportunity scanning"""
@@ -269,7 +304,7 @@ def toggle_auto_scan():
     try:
         if enabled:
             scheduler.start()
-            message = "Auto-scan enabled - scanning every 5 minutes"
+            message = "Auto-scan enabled - scanning every 1 second"
         else:
             scheduler.stop()
             message = "Auto-scan disabled"

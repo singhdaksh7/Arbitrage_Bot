@@ -1,9 +1,14 @@
 """
-Arbitrage detection strategy
+Arbitrage detection strategy with parallel price fetching
 """
 
+import asyncio
+import time
 from app import db
 from app.models.opportunity import Opportunity
+from app.latency.async_fetcher import AsyncPriceFetcher
+from app.latency.metrics import latency_tracker
+from app.latency.order_queue import order_queue
 from config import Config
 
 class ArbitrageDetector:
@@ -17,54 +22,67 @@ class ArbitrageDetector:
         self.exchanges = exchanges
         self.min_profit_percent = Config.MIN_PROFIT_PERCENTAGE
         self.fee = Config.TRANSACTION_FEE
+        self.async_fetcher = AsyncPriceFetcher(exchanges)
     
     def detect_opportunities(self, trading_pairs):
         """
-        Detect arbitrage opportunities across exchanges
+        Detect arbitrage opportunities across exchanges (ASYNC VERSION).
         
         Returns: list of Opportunity objects
         """
-        opportunities = []
+        cycle_start = time.time()
+        latency_tracker.start_phase('full_detection_cycle')
         
+        # Fetch prices in parallel (not sequential)
+        latency_tracker.start_phase('price_fetch')
+        try:
+            prices = asyncio.run(self.async_fetcher.fetch_prices_parallel(trading_pairs))
+        except RuntimeError:
+            # Fallback if no event loop
+            prices = self._fetch_prices_sync(trading_pairs)
+        latency_tracker.end_phase('price_fetch')
+        
+        if not prices:
+            return []
+        
+        # Compare and find opportunities
+        latency_tracker.start_phase('comparison')
+        opportunities = []
         for pair in trading_pairs:
-            prices = self._fetch_prices(pair)
-            if not prices or len(prices) < 2:
+            pair_prices = {ex: prices.get(ex, {}).get(pair) for ex in prices}
+            pair_prices = {k: v for k, v in pair_prices.items() if v}
+            
+            if len(pair_prices) < 2:
                 continue
             
-            opps = self._compare_prices(pair, prices)
+            opps = self._compare_prices(pair, pair_prices)
             opportunities.extend(opps)
+        latency_tracker.end_phase('comparison')
+        
+        # Record cycle time
+        cycle_time = (time.time() - cycle_start) * 1000
+        latency_tracker.record_full_cycle(cycle_time)
         
         return opportunities
     
-    def _fetch_prices(self, trading_pair):
-        """Fetch prices from all exchanges"""
+    def _fetch_prices_sync(self, trading_pairs):
+        """Fallback sequential price fetch"""
         prices = {}
-        
-        for exchange_name, connector in self.exchanges.items():
-            if not connector.is_available():
-                continue
-            
-            try:
-                # Try the trading pair as-is first
-                price_data = connector.get_price(trading_pair)
-                
-                # If not found, try alternative symbols
-                if price_data is None:
-                    # Convert USD to USDT for Binance
-                    alt_pair = trading_pair.replace('USD', 'USDT') if 'USD' in trading_pair else trading_pair
-                    if alt_pair != trading_pair:
-                        price_data = connector.get_price(alt_pair)
-                
-                if price_data and price_data.get('ask'):
-                    prices[exchange_name] = {
-                        'ask': price_data['ask'],
-                        'bid': price_data['bid'],
-                        'pair': alt_pair if price_data else trading_pair
-                    }
-            except Exception as e:
-                print(f"Error fetching price from {exchange_name}: {e}")
-                continue
-        
+        for pair in trading_pairs:
+            for exchange_name, connector in self.exchanges.items():
+                if not connector.is_available():
+                    continue
+                try:
+                    price_data = connector.get_price(pair)
+                    if price_data and price_data.get('ask'):
+                        if exchange_name not in prices:
+                            prices[exchange_name] = {}
+                        prices[exchange_name][pair] = {
+                            'ask': price_data['ask'],
+                            'bid': price_data['bid']
+                        }
+                except Exception as e:
+                    print(f"Error fetching {pair} from {exchange_name}: {e}")
         return prices
     
     def _compare_prices(self, trading_pair, prices):

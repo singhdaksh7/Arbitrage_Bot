@@ -21,7 +21,7 @@ class Config:
     
     # Bot configuration
     INITIAL_WALLET_BALANCE = 1000  # $1000 virtual USD
-    SCAN_INTERVAL = 300  # Seconds between automatic scans (5 minutes)
+    SCAN_INTERVAL = 1  # Reduced from 300s to 1s for sub-second detection
     UPDATE_INTERVAL = 60  # Seconds between price updates
     
     # Trading configuration
@@ -54,6 +54,12 @@ class Config:
     
     # Backtesting configuration
     BACKTEST_DAYS = 7  # Historical data for backtesting
+    
+    # Latency optimization
+    ENABLE_ASYNC_FETCHING = True  # Use parallel API calls
+    ENABLE_PRICE_CACHE = True    # Use in-memory price cache
+    ENABLE_ORDER_QUEUE = True     # Use pre-prepared orders
+    LATENCY_TRACKING = True        # Track execution latency metrics
 
 class DevelopmentConfig(Config):
     """Development configuration"""
